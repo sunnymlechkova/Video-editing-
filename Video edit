@@ -1,0 +1,65 @@
+import cv2
+import numpy as np
+
+# ==== Configuration ====
+width, height = 800, 800
+center = (width // 2, height // 2)
+radius = 300
+needle_length = 250
+fps = 30
+duration_seconds = 10
+total_frames = fps * duration_seconds
+max_speed = 200
+
+# ==== Colors ====
+green_screen = (0, 255, 0)       # Background for chroma key
+gauge_color = (255, 255, 255)    # White circle and tick marks
+needle_color = (0, 0, 255)       # Red needle
+font_color = (255, 255, 255)     # White digital readout
+
+# ==== Output ====
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+output_path = "MPH_panel.mp4"
+out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+def draw_speedometer_frame(speed):
+    img = np.full((height, width, 3), green_screen, dtype=np.uint8)
+
+    # Outer gauge
+    cv2.circle(img, center, radius, gauge_color, 8)
+
+    # Tick marks and labels
+    for i in range(0, max_speed + 1, 20):
+        angle = np.deg2rad(225 - (i / max_speed) * 270)
+        x1 = int(center[0] + np.cos(angle) * (radius - 20))
+        y1 = int(center[1] - np.sin(angle) * (radius - 20))
+        x2 = int(center[0] + np.cos(angle) * (radius - 50))
+        y2 = int(center[1] - np.sin(angle) * (radius - 50))
+        cv2.line(img, (x1, y1), (x2, y2), gauge_color, 2)
+
+        # Label
+        label = str(i)
+        lx = int(center[0] + np.cos(angle) * (radius - 80))
+        ly = int(center[1] - np.sin(angle) * (radius - 80))
+        cv2.putText(img, label, (lx - 20, ly + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, font_color, 2)
+
+    # Needle
+    angle = np.deg2rad(225 - (speed / max_speed) * 270)
+    x = int(center[0] + np.cos(angle) * needle_length)
+    y = int(center[1] - np.sin(angle) * needle_length)
+    cv2.line(img, center, (x, y), needle_color, 6)
+
+    # Digital readout
+    readout = f"{int(speed)} MPH"
+    cv2.putText(img, readout, (center[0] - 100, center[1] + 250), cv2.FONT_HERSHEY_DUPLEX, 2.0, font_color, 3)
+
+    return img
+
+# ==== Generate all frames ====
+for frame_num in range(total_frames):
+    current_speed = (frame_num / total_frames) * max_speed
+    frame = draw_speedometer_frame(current_speed)
+    out.write(frame)
+
+out.release()
+print(f"Video saved to {output_path}")
